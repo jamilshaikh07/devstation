@@ -1,0 +1,34 @@
+services:
+  code-server:
+    build: ./code-server
+    container_name: devstation
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Kolkata
+      - PASSWORD=password
+      - SUDO_PASSWORD=password
+      - EXTENSIONS_GALLERY={"serviceUrl":"https://marketplace.visualstudio.com/_apis/public/gallery","itemUrl":"https://marketplace.visualstudio.com/items","cacheUrl":"https://vscode.blob.core.windows.net/gallery/index","controlUrl":"","recommendationsUrl":""}
+    volumes:
+      - ./config/code-server:/config
+      - ./projects:/home/coder/projects
+      - ./config/ssh:/home/coder/.ssh
+      - ./config/gitconfig:/home/coder/.gitconfig
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint: /custom-entrypoint.sh
+    restart: unless-stopped
+
+  dashboard:
+    build: ./nginx
+    container_name: devstation-dash
+    environment:
+      - DEVSTATION_USER=${DEVSTATION_USER:-admin}
+      - DEVSTATION_PASS=${DEVSTATION_PASS:-devstation}
+    volumes:
+      - ./html:/usr/share/nginx/html
+      - ./projects:/usr/share/nginx/projects:ro
+    ports:
+      - 80:80
+    depends_on:
+      - code-server
+    restart: unless-stopped

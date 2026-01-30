@@ -1,0 +1,5 @@
+source /usr/share/bash-completion/bash_completion 2>/dev/null
+source <(kubectl completion bash) 2>/dev/null
+alias k=kubectl
+complete -o default -F __start_kubectl k 2>/dev/null
+export PS1="\[\e[1;36m\]devstation\[\e[0m\]:\[\e[1;34m\]\w\[\e[0m\]\$ "

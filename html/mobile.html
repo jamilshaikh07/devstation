@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DevStation Mobile</title>
+<style>
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #1c2128;
+  --border: #30363d; --text: #e6edf3; --dim: #8b949e;
+  --accent: #58a6ff; --green: #3fb950; --red: #f85149;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--text);
+  height: 100vh; height: 100dvh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+
+/* Toolbar */
+#toolbar {
+  height: 44px; background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 8px; gap: 4px; flex-shrink: 0;
+}
+.tb-btn {
+  background: none; border: none; color: var(--dim);
+  padding: 8px; border-radius: 6px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  min-width: 36px; min-height: 36px;
+}
+.tb-btn:active { background: var(--bg3); }
+.tb-btn.active { color: var(--accent); }
+.tb-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#filename {
+  flex: 1; font-size: 12px; font-weight: 600;
+  color: var(--text); text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#filename.unsaved::after { content: ' •'; color: var(--accent); }
+#save-indicator { font-size: 10px; color: var(--green); display: none; }
+
+/* Main area */
+#main {
+  flex: 1; display: flex; overflow: hidden;
+  position: relative;
+}
+
+/* Sidebar */
+#sidebar {
+  width: 260px; background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  position: absolute; left: -260px;
+  top: 0; bottom: 0; z-index: 50;
+  transition: left 0.2s ease;
+}
+#sidebar.open { left: 0; }
+#sidebar-overlay {
+  display: none; position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4); z-index: 40;
+}
+#sidebar.open ~ #sidebar-overlay { display: block; }
+
+#sidebar-header {
+  padding: 10px 12px; font-size: 12px; font-weight: 700;
+  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+#file-tree {
+  flex: 1; overflow-y: auto; padding: 4px 0;
+  -webkit-overflow-scrolling: touch;
+}
+.tree-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; cursor: pointer;
+  font-size: 13px; color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  border-left: 3px solid transparent;
+}
+.tree-item:active { background: var(--bg3); }
+.tree-item.active { background: var(--bg3); border-left-color: var(--accent); }
+.tree-item .icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+.tree-item.dir .icon { color: var(--accent); }
+.tree-item.file .icon { color: var(--dim); }
+.tree-item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-item .indent { flex-shrink: 0; }
+.tree-back { color: var(--dim); font-style: italic; }
+
+/* Editor */
+#editor-wrap {
+  flex: 1; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+#editor { flex: 1; overflow: auto; }
+.cm-editor { height: 100%; }
+.cm-editor .cm-scroller { overflow: auto; -webkit-overflow-scrolling: touch; }
+.cm-editor .cm-content { padding: 8px 0; }
+.cm-editor .cm-line { padding: 0 12px; font-size: 14px; line-height: 1.6; }
+.cm-editor .cm-gutters { background: var(--bg); border-right: 1px solid var(--border); }
+.cm-editor .cm-gutter { padding: 0 6px; }
+.cm-editor.cm-focused { outline: none; }
+
+/* Terminal panel */
+#terminal-panel {
+  display: none; background: var(--bg2);
+  border-top: 1px solid var(--border);
+  flex-direction: column; max-height: 40vh;
+}
+#terminal-panel.open { display: flex; }
+#term-header {
+  padding: 6px 12px; font-size: 11px; font-weight: 700;
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+#term-output {
+  flex: 1; overflow-y: auto; padding: 8px 12px;
+  font-family: 'SF Mono', 'Menlo', monospace;
+  font-size: 12px; line-height: 1.5; white-space: pre-wrap;
+  color: var(--text); -webkit-overflow-scrolling: touch;
+}
+#term-input-wrap {
+  display: flex; border-top: 1px solid var(--border);
+}
+#term-input {
+  flex: 1; background: var(--bg); border: none;
+  color: var(--text); padding: 10px 12px; font-size: 13px;
+  font-family: 'SF Mono', 'Menlo', monospace; outline: none;
+}
+#term-run {
+  background: var(--accent); color: #000; border: none;
+  padding: 10px 16px; font-weight: 700; font-size: 12px; cursor: pointer;
+}
+
+/* Welcome */
+#welcome {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  flex: 1; color: var(--dim); gap: 8px; padding: 20px;
+  text-align: center;
+}
+#welcome h2 { color: var(--text); font-size: 18px; }
+#welcome p { font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button class="tb-btn" id="btn-sidebar" onclick="toggleSidebar()">
+    <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </button>
+  <span id="filename">DevStation</span>
+  <span id="save-indicator">Saved</span>
+  <button class="tb-btn" onclick="saveFile()">
+    <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+  </button>
+  <button class="tb-btn" id="btn-term" onclick="toggleTerminal()">
+    <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+  </button>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <span id="current-path">~/projects</span>
+      <button class="tb-btn" onclick="createNew()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+    <div id="file-tree"></div>
+  </div>
+  <div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <div id="editor-wrap">
+    <div id="welcome">
+      <h2>DevStation</h2>
+      <p>Tap the menu icon to browse files</p>
+    </div>
+    <div id="editor"></div>
+  </div>
+</div>
+
+<div id="terminal-panel">
+  <div id="term-header">
+    Terminal
+    <button class="tb-btn" onclick="toggleTerminal()" style="padding:4px">
+      <svg viewBox="0 0 24 24" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div id="term-output"></div>
+  <div id="term-input-wrap">
+    <input id="term-input" placeholder="command..." autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button id="term-run" onclick="runCommand()">Run</button>
+  </div>
+</div>
+
+<script type="module">
+import {EditorView, basicSetup} from 'https://esm.sh/@codemirror/basic-setup@0.20.0';
+import {EditorState} from 'https://esm.sh/@codemirror/state@6.5.2';
+import {javascript} from 'https://esm.sh/@codemirror/lang-javascript@6.2.3';
+import {python} from 'https://esm.sh/@codemirror/lang-python@6.1.7';
+import {html} from 'https://esm.sh/@codemirror/lang-html@6.4.10';
+import {css} from 'https://esm.sh/@codemirror/lang-css@6.3.1';
+import {json} from 'https://esm.sh/@codemirror/lang-json@6.0.1';
+import {markdown} from 'https://esm.sh/@codemirror/lang-markdown@6.3.1';
+import {yaml} from 'https://esm.sh/@codemirror/legacy-modes/mode/yaml';
+import {StreamLanguage} from 'https://esm.sh/@codemirror/language@6.10.8';
+import {oneDark} from 'https://esm.sh/@codemirror/theme-one-dark@6.1.2';
+import {keymap} from 'https://esm.sh/@codemirror/view@6.36.4';
+
+const langMap = {
+  js: javascript(), jsx: javascript({jsx: true}), ts: javascript({typescript: true}),
+  tsx: javascript({jsx: true, typescript: true}),
+  py: python(), html: html(), htm: html(),
+  css: css(), json: json(), md: markdown(),
+  yaml: StreamLanguage.define(yaml), yml: StreamLanguage.define(yaml),
+};
+
+let view = null;
+let currentFile = null;
+let currentDir = '';
+let isUnsaved = false;
+
+function getLang(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  return langMap[ext] || [];
+}
+
+window.openFile = async function(filepath) {
+  try {
+    const res = await fetch(`/editor/api/file?path=${encodeURIComponent(filepath)}`);
+    if (!res.ok) throw new Error('Failed to load');
+    const content = await res.text();
+    currentFile = filepath;
+    isUnsaved = false;
+
+    document.getElementById('filename').textContent = filepath.split('/').pop();
+    document.getElementById('filename').classList.remove('unsaved');
+    document.getElementById('welcome').style.display = 'none';
+    document.getElementById('editor').style.display = 'block';
+
+    if (view) view.destroy();
+
+    view = new EditorView({
+      state: EditorState.create({
+        doc: content,
+        extensions: [
+          basicSetup,
+          oneDark,
+          getLang(filepath),
+          EditorView.updateListener.of(u => {
+            if (u.docChanged && !isUnsaved) {
+              isUnsaved = true;
+              document.getElementById('filename').classList.add('unsaved');
+            }
+          }),
+          keymap.of([{ key: 'Mod-s', run: () => { window.saveFile(); return true; } }]),
+          EditorView.theme({
+            '&': { height: '100%', fontSize: '14px' },
+            '.cm-content': { fontFamily: "'SF Mono', Menlo, monospace" },
+          }),
+        ],
+      }),
+      parent: document.getElementById('editor'),
+    });
+
+    toggleSidebar(false);
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+};
+
+window.saveFile = async function() {
+  if (!view || !currentFile) return;
+  try {
+    const res = await fetch(`/editor/api/file?path=${encodeURIComponent(currentFile)}`, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' },
+      body: view.state.doc.toString(),
+    });
+    if (!res.ok) throw new Error('Save failed');
+    isUnsaved = false;
+    document.getElementById('filename').classList.remove('unsaved');
+    const ind = document.getElementById('save-indicator');
+    ind.style.display = 'inline';
+    setTimeout(() => ind.style.display = 'none', 1500);
+  } catch (e) { alert('Error: ' + e.message); }
+};
+
+window.loadDir = async function(dirPath) {
+  try {
+    currentDir = dirPath || '';
+    const res = await fetch(`/editor/api/files?path=${encodeURIComponent(currentDir)}`);
+    if (!res.ok) throw new Error('Failed to list');
+    const items = await res.json();
+    const tree = document.getElementById('file-tree');
+    tree.innerHTML = '';
+
+    document.getElementById('current-path').textContent =
+      currentDir ? '~/' + currentDir : '~/projects';
+
+    if (currentDir) {
+      const back = document.createElement('div');
+      back.className = 'tree-item tree-back';
+      back.innerHTML = '<span class="icon">←</span><span class="name">..</span>';
+      back.onclick = () => loadDir(currentDir.split('/').slice(0, -1).join('/'));
+      tree.appendChild(back);
+    }
+
+    items.forEach(item => {
+      const el = document.createElement('div');
+      const fullPath = currentDir ? `${currentDir}/${item.name}` : item.name;
+      el.className = `tree-item ${item.type}`;
+      if (item.type === 'dir') {
+        el.innerHTML = `<span class="icon">📁</span><span class="name">${item.name}</span>`;
+        el.onclick = () => loadDir(fullPath);
+      } else {
+        el.innerHTML = `<span class="icon">📄</span><span class="name">${item.name}</span>`;
+        el.onclick = () => openFile(fullPath);
+        if (fullPath === currentFile) el.classList.add('active');
+      }
+      tree.appendChild(el);
+    });
+  } catch (e) {
+    document.getElementById('file-tree').innerHTML =
+      `<div style="padding:12px;color:var(--red);font-size:12px">Error: ${e.message}</div>`;
+  }
+};
+
+window.toggleSidebar = function(force) {
+  const sb = document.getElementById('sidebar');
+  const isOpen = force !== undefined ? !force : sb.classList.contains('open');
+  sb.classList.toggle('open', !isOpen);
+  document.getElementById('btn-sidebar').classList.toggle('active', !isOpen);
+};
+
+window.toggleTerminal = function() {
+  const tp = document.getElementById('terminal-panel');
+  const isOpen = tp.classList.contains('open');
+  tp.classList.toggle('open');
+  document.getElementById('btn-term').classList.toggle('active', !isOpen);
+  if (!isOpen) document.getElementById('term-input').focus();
+};
+
+window.runCommand = async function() {
+  const input = document.getElementById('term-input');
+  const output = document.getElementById('term-output');
+  const cmd = input.value.trim();
+  if (!cmd) return;
+
+  output.textContent += `$ ${cmd}\n`;
+  input.value = '';
+
+  try {
+    const res = await fetch(`/editor/api/terminal?cwd=${encodeURIComponent(currentDir)}`, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: cmd,
+    });
+    const text = await res.text();
+    output.textContent += text + '\n';
+  } catch (e) {
+    output.textContent += `Error: ${e.message}\n`;
+  }
+  output.scrollTop = output.scrollHeight;
+};
+
+window.createNew = function() {
+  const name = prompt('Name (add / at end for folder):');
+  if (!name) return;
+  const fullPath = currentDir ? `${currentDir}/${name}` : name;
+
+  if (name.endsWith('/')) {
+    fetch(`/editor/api/mkdir?path=${encodeURIComponent(fullPath)}`, { method: 'POST' })
+      .then(() => loadDir(currentDir));
+  } else {
+    fetch(`/editor/api/file?path=${encodeURIComponent(fullPath)}`, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: '',
+    }).then(() => { loadDir(currentDir); openFile(fullPath); });
+  }
+};
+
+// Enter key in terminal
+document.getElementById('term-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runCommand();
+});
+
+// Initial load
+document.getElementById('editor').style.display = 'none';
+loadDir('');
+</script>
+</body>
+</html>

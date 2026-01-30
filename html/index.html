@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>DevStation</title>
+    <style>
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #1c2128;
+            --border: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent: #58a6ff;
+            --success: #3fb950;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* ── Top Bar — hidden on mobile ── */
+        #topbar {
+            height: 36px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+            flex-shrink: 0;
+            gap: 10px;
+        }
+
+        @media (max-width: 600px) {
+            #topbar { display: none; }
+        }
+
+        .title { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; white-space: nowrap; }
+        .title span { color: var(--accent); }
+
+        #project-select {
+            flex: 1;
+            max-width: 200px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 4px 8px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+        }
+
+        #project-select:focus { border-color: var(--accent); }
+
+        .status-dot {
+            width: 7px; height: 7px;
+            background: var(--success);
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* ── Viewport ── */
+        #viewport {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            position: absolute;
+            top: 0; left: 0;
+            background: var(--bg-primary);
+        }
+
+        .hidden { display: none; }
+        .active-frame { display: block; }
+
+        /* ── Bottom Nav ── */
+        #nav {
+            height: 40px;
+            background: var(--bg-secondary);
+            display: flex;
+            border-top: 1px solid var(--border);
+            padding-bottom: env(safe-area-inset-bottom);
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 600px) {
+            #nav { height: 36px; }
+        }
+
+        .nav-btn {
+            color: var(--text-secondary);
+            background: none;
+            border: none;
+            font-size: 10px;
+            font-weight: 600;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            flex: 1;
+            cursor: pointer;
+            transition: color 0.15s;
+            position: relative;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .nav-btn:active { opacity: 0.7; }
+        .nav-btn.selected { color: var(--accent); }
+
+        .nav-btn.selected::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 25%; right: 25%;
+            height: 2px;
+            background: var(--accent);
+            border-radius: 0 0 2px 2px;
+        }
+
+        .nav-btn svg {
+            width: 16px; height: 16px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+    </style>
+</head>
+<body>
+    <div id="topbar">
+        <div class="title">Dev<span>Station</span></div>
+        <select id="project-select">
+            <option value="">~/projects</option>
+        </select>
+        <div class="status-dot" title="Online"></div>
+    </div>
+
+    <div id="viewport">
+        <iframe id="frame-code" class="active-frame"></iframe>
+        <iframe id="frame-term" class="hidden"></iframe>
+    </div>
+
+    <div id="nav">
+        <button class="nav-btn selected" onclick="switchTab('code', this)">
+            <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            Code
+        </button>
+        <button class="nav-btn" onclick="switchTab('term', this)">
+            <svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+            Term
+        </button>
+    </div>
+
+    <script>
+        const codeFrame = document.getElementById('frame-code');
+        const termFrame = document.getElementById('frame-term');
+        const projectSelect = document.getElementById('project-select');
+        let currentTab = 'code';
+
+        // Mobile: use custom editor, Desktop: use code-server
+        if (window.innerWidth <= 768) {
+            codeFrame.src = '/mobile.html';
+        } else {
+            codeFrame.src = '/code/?folder=/home/coder/projects';
+        }
+        termFrame.src = '/term/';
+
+        function switchTab(tabName, btn) {
+            if (tabName === currentTab) return;
+
+            codeFrame.className = tabName === 'code' ? 'active-frame' : 'hidden';
+            termFrame.className = tabName === 'term' ? 'active-frame' : 'hidden';
+            currentTab = tabName;
+
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('selected'));
+            if (btn) btn.classList.add('selected');
+            else document.querySelectorAll('.nav-btn')[tabName === 'code' ? 0 : 1].classList.add('selected');
+        }
+
+        // Keyboard shortcuts (desktop)
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === '1') { e.preventDefault(); switchTab('code'); }
+            if (e.ctrlKey && e.key === '2') { e.preventDefault(); switchTab('term'); }
+        });
+
+        // Project switcher
+        projectSelect.addEventListener('change', () => {
+            const project = projectSelect.value;
+            const folder = project
+                ? `/home/coder/projects/${project}`
+                : '/home/coder/projects';
+            codeFrame.src = `/code/?folder=${encodeURIComponent(folder)}`;
+        });
+
+        async function loadProjects() {
+            try {
+                const res = await fetch('/api/projects');
+                if (!res.ok) return;
+                const projects = await res.json();
+                projects.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name;
+                    projectSelect.appendChild(opt);
+                });
+            } catch (e) {}
+        }
+
+        loadProjects();
+    </script>
+</body>
+</html>
